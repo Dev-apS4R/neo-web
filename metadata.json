@@ -1,6 +1,0 @@
-{
-  "name": "Neo Network",
-  "description": "A neo-futuristic social directory where verified members can create, customize, and share dark-mode interactive profiles.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
