@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PHASE 3: PRIMITIVE DEFINITIONS & GLOBAL HELPERS ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Require email verification for creating and updating documents
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- PHASE 4: SCHEMA VALIDATION HELPERS ---
+
+    function isValidUserProfile(data) {
+      return data.username is string && data.username.size() >= 3 && data.username.size() <= 30
+        && data.username.matches('^[a-zA-Z0-9_]+$')
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 400))
+        && (!('occupation' in data) || (data.occupation is string && data.occupation.size() <= 60))
+        && (!('themeColor' in data) || (data.themeColor is string && data.themeColor.size() <= 20))
+        && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 150))
+        // Protect arrays and items
+        && (!('skills' in data) || (data.skills is list && data.skills.size() <= 10))
+        && (!('links' in data) || (data.links is list && data.links.size() <= 5));
+    }
+
+    function isValidPrivateInfo(data) {
+      return data.email is string && data.email.size() <= 120
+        && data.email == request.auth.token.email
+        && data.emailVerified is bool
+        && data.emailVerified == request.auth.token.email_verified;
+    }
+
+    // --- COLLECTION RULES: USERS ---
+
+    match /users/{userId} {
+      // Any authenticated user can read profiles in the network
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+
+      allow create: if isOwner(userId) && isValidId(userId)
+                    && isEmailVerified() // Require verified email to create profile (Strict system integrity!)
+                    && incoming().keys().hasAll(['username', 'displayName'])
+                    && incoming().keys().size() <= 9 // Prevent shadow fields injection
+                    && isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) && isValidId(userId)
+                    && isEmailVerified()
+                    && incoming().keys().size() <= 9 // Prevent shadow fields injection
+                    && isValidUserProfile(incoming())
+                    && incoming().username == existing().username; // Username is immutable
+
+      allow delete: if false; // Profiles are permanent
+
+      // Subcollection for PII (Split Collection Strategy)
+      match /private/info {
+        allow get: if isOwner(userId);
+        
+        allow create: if isOwner(userId)
+                      && incoming().keys().hasAll(['email', 'emailVerified', 'createdAt'])
+                      && incoming().keys().size() == 3
+                      && isValidPrivateInfo(incoming())
+                      && incoming().createdAt == request.time; // Enforce server timestamp
+                      
+        allow update: if isOwner(userId)
+                      && incoming().keys().hasAll(['email', 'emailVerified', 'createdAt'])
+                      && incoming().keys().size() == 3
+                      && isValidPrivateInfo(incoming())
+                      && incoming().createdAt == existing().createdAt; // createdAt is immutable
+                      
+        allow delete: if false;
+      }
+    }
+  }
+}

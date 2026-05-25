@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public profile configuration of a Neo platform member",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "A unique visual handle chosen by the user"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name"
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short self-description/bio"
+        },
+        "occupation": {
+          "type": "string",
+          "description": "The user's professional title or role"
+        },
+        "themeColor": {
+          "type": "string",
+          "description": "Accent branding theme, e.g. cyan, emerald, violet, pink, amber"
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "ID or URL of selected avatar style"
+        },
+        "skills": {
+          "type": "array",
+          "description": "List of core skills or hashtags"
+        },
+        "links": {
+          "type": "array",
+          "description": "List of user's custom external links and labels"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation or update"
+        }
+      },
+      "required": [
+        "username",
+        "displayName"
+      ]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Protected user records (PII) including physical credentials and verification states",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Verified email for authentication"
+        },
+        "emailVerified": {
+          "type": "boolean",
+          "description": "Verified status of the account email"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Chronological registration timestamp"
+        }
+      },
+      "required": [
+        "email",
+        "emailVerified",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Accessible user handles and public visual bio blocks"
+    },
+    "users/{userId}/private/info": {
+      "schema": "UserPrivateInfo",
+      "description": "Strictly locked PII including email details, only readable/writable by owner"
+    }
+  }
+}
